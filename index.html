@@ -761,40 +761,39 @@
   </div>
 
   <div class="tab-panel" id="tab-taxes">
-    <div class="grid">
-      <div class="stat-card card">
-        <div class="label">Paid This Year</div>
-        <div class="value" id="taxPaidYTD">$0</div>
-        <div class="sub" id="taxPaidYTDSub"></div>
-      </div>
-      <div class="stat-card card">
-        <div class="label">Next Due</div>
-        <div class="value" id="taxNextDue">&mdash;</div>
-        <div class="sub" id="taxNextDueSub"></div>
-      </div>
-      <div class="stat-card card">
-        <div class="label">SEP 401k Total</div>
-        <div class="value" id="sepTotal">$0</div>
-        <div class="sub">all years</div>
-      </div>
+    <!-- KPI row -->
+    <div class="grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;">
+      <div class="stat-card card"><div class="label">Paid · <span id="txKpiYear">2026</span></div><div class="value" id="txKpiPaid">$0</div><div class="sub" id="txKpiPaidSub">federal estimated</div></div>
+      <div class="stat-card card"><div class="label">SEP Contributed</div><div class="value" id="txKpiSep">$0</div><div class="sub" id="txKpiSepSub">this year</div></div>
+      <div class="stat-card card"><div class="label">Reserve Target</div><div class="value" id="txKpiReserve">$0</div><div class="sub" id="txKpiReserveSub">est. tax + SE</div></div>
+      <div class="stat-card card"><div class="label">Reserve Gap</div><div class="value" id="txKpiGap">—</div><div class="sub" id="txKpiGapSub">vs. paid YTD</div></div>
+      <div class="stat-card card"><div class="label">Next Due</div><div class="value" id="txKpiNextDue">—</div><div class="sub" id="txKpiNextDueSub"></div></div>
     </div>
 
-    <div class="card">
-      <h2>Estimated Tax Payments <span style="font-weight:500;color:var(--text-dim);font-size:12.5px;">&mdash; click any cell to edit. Status is calculated automatically.</span></h2>
-      <div style="overflow-x:auto;">
-        <table class="editable-table">
-          <thead><tr><th style="min-width:70px;">Year</th><th style="min-width:70px;">Quarter</th><th style="min-width:160px;">Period</th><th style="min-width:120px;">Due Date</th><th class="num" style="min-width:100px;">Paid</th><th style="min-width:120px;">Paid On</th><th style="min-width:110px;">Status</th><th></th></tr></thead>
-          <tbody id="taxTbody"></tbody>
-        </table>
+    <!-- Quarter payments card -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <h2 style="margin:0;">Estimated Tax Payments</h2>
+        <div id="txYearTabs" style="display:flex;gap:6px;"></div>
+        <button onclick="txAddYear()" style="margin-left:auto;background:none;border:1px solid rgba(255,255,255,0.15);color:var(--text-dim);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">+ Year</button>
       </div>
+      <div id="txQuarterGrid"></div>
+      <div id="txQEditor" style="display:none;margin-top:16px;"></div>
+    </div>
 
-      <div class="subgrid-title">SEP 401k Contributions</div>
-      <div style="overflow-x:auto;">
-        <table class="editable-table">
-          <thead><tr><th style="min-width:70px;">Year</th><th style="min-width:110px;">Type</th><th class="num" style="min-width:100px;">Amount</th><th style="min-width:120px;">Date</th><th></th></tr></thead>
-          <tbody id="sepTbody"></tbody>
-        </table>
+    <!-- Tax intelligence -->
+    <div class="card" style="margin-bottom:14px;">
+      <h2 style="margin-bottom:14px;">Tax Intelligence</h2>
+      <div id="txInsightsBody"></div>
+    </div>
+
+    <!-- SEP 401k -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h2 style="margin:0;">SEP 401k Contributions</h2>
+        <button onclick="txAddSep()" style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--text-dim);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">+ Add</button>
       </div>
+      <div id="txSepBody"></div>
     </div>
   </div>
 
@@ -881,6 +880,18 @@
             <input type="number" id="s-goal" step="5000">
           </div>
           <div class="field">
+            <label>Federal Tax Rate (%) <span style="font-weight:400;color:var(--text-dim)">— effective rate used for reserve &amp; estimates</span></label>
+            <input type="number" id="s-tax-rate" step="0.5" min="0" max="60" placeholder="35">
+          </div>
+          <div class="field">
+            <label>SE Tax Rate (%) <span style="font-weight:400;color:var(--text-dim)">— self-employment tax (standard 15.3%)</span></label>
+            <input type="number" id="s-se-rate" step="0.1" min="0" max="20" placeholder="15.3">
+          </div>
+          <div class="field">
+            <label>Prior Year Total Tax ($) <span style="font-weight:400;color:var(--text-dim)">— federal + SE paid last year, for safe harbor</span></label>
+            <input type="number" id="s-prior-tax" step="100" min="0" placeholder="0">
+          </div>
+          <div class="field">
             <label>PIN Hint <span style="font-weight:400;color:var(--text-dim)">(shown on lock screen if you tap Forgot — never shows the actual PIN)</span></label>
             <input type="text" id="s-hint" placeholder="e.g. year I graduated, backwards" maxlength="80">
           </div>
@@ -962,6 +973,9 @@ const DEFAULT_STATE = {
   weeklyTarget: 24,
   monthlyRevenueTarget: 0,
   annualGoal: 200000,
+  taxRate: 35,
+  seRate: 15.3,
+  priorYearTax: 0,
   excludedProjects: [],
   bus: ['Visa (General)','Issuing Solutions','Digital Enablement','Foundation Solutions','CES','Other'],
   assets: ['Pitch Deck','Strategy','Messaging','Webinar','Collateral','Battlecards','Demo Script','Web / Digital Asset','RFP','UI','Comms / Admin','Unused Hours','Other'],
@@ -2240,6 +2254,9 @@ function renderSettings(){
   $('s-bin-id').value = getBinId();
   $('s-target').value = state.weeklyTarget;
   $('s-target-revenue').value = state.monthlyRevenueTarget;
+  $('s-tax-rate').value = state.taxRate||35;
+  $('s-se-rate').value = state.seRate||15.3;
+  $('s-prior-tax').value = state.priorYearTax||0;
   renderTagList('buList', state.bus, 'bus');
   renderTagList('assetList', state.assets, 'assets');
   renderTagList('taskList', state.tasks, 'tasks');
@@ -2258,6 +2275,9 @@ $('saveSettingsBtn').addEventListener('click', ()=>{
   state.weeklyTarget = parseFloat($('s-target').value)||0;
   state.monthlyRevenueTarget = parseFloat($('s-target-revenue').value)||0;
   state.annualGoal = parseFloat($('s-goal').value)||200000;
+  state.taxRate = parseFloat($('s-tax-rate').value)||35;
+  state.seRate = parseFloat($('s-se-rate').value)||15.3;
+  state.priorYearTax = parseFloat($('s-prior-tax').value)||0;
   setHint($('s-hint').value.trim());
   if($('s-master-key').value.trim()) setMasterKey($('s-master-key').value.trim());
   if($('s-bin-id').value.trim()) setBinId($('s-bin-id').value.trim());
@@ -2618,347 +2638,277 @@ function taxYearsList(){
 function renderTaxesTab(){
   const years = taxYearsList();
   if(taxActiveYear===null || !years.includes(taxActiveYear)){
-    taxActiveYear = years.includes(new Date().getFullYear()) ? new Date().getFullYear() : years[0];
+    taxActiveYear = years.includes(new Date().getFullYear()) ? new Date().getFullYear() : (years[0]||new Date().getFullYear());
   }
-  renderTaxHero();
-  renderTaxYearTabs(years);
-  renderTaxTimeline();
-  renderTaxDonut();
-  renderTaxTrend(years);
-  renderSepSummary();
-  renderSepList();
-  renderSrcTaxTable();
-  renderSrcSepTable();
-  populateSlideYearOptions();
+  txRenderKPIs();
+  txRenderYearTabs();
+  txRenderQuarters();
+  txRenderInsights();
+  txRenderSep();
 }
 
-function renderTaxHero(){
-  const today = new Date(todayISO()+'T00:00:00');
-  const candidates = [];
+/* ---- NEW TAXES TAB IMPLEMENTATION ---- */
+let txEditingQ = null;
+
+function txSet(id, val){ const el=$(id); if(el) el.textContent=val; }
+
+function txRenderKPIs(){
+  const cy = new Date().getFullYear();
+  txSet('txKpiYear', cy);
+  const taxRate = (state.taxRate||35)/100;
+  const seRate  = (state.seRate||15.3)/100;
+
+  const paidCY = state.taxPayments.filter(r=>r.year===cy && r.paid!=null && r.paid!=='').reduce((s,r)=>s+parseFloat(r.paid||0),0);
+  const sepCY  = state.sep401k.filter(r=>r.year===cy).reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const cyBilled = state.entries.filter(e=>e.date&&e.date.startsWith(String(cy))).reduce((s,e)=>s+e.billed,0);
+
+  // Reserve = SE estimate + federal estimate (rough: deduct ½ SE and SEP from taxable)
+  const seEst  = cyBilled * 0.9235 * seRate;
+  const fedEst = Math.max(0, (cyBilled - seEst/2 - sepCY) * taxRate);
+  const reserveTarget = seEst + fedEst;
+  const gap = reserveTarget - paidCY;
+
+  // Next unpaid due date
+  const today = todayISO();
+  const unpaid = [];
   taxYearsList().forEach(y=>{
     ['Q1','Q2','Q3','Q4'].forEach(q=>{
       const r = getTaxRow(y,q);
-      if(r && r.paid!=null && r.paid!=='') return;
-      candidates.push({year:y, quarter:q, due: irsQuarterlyDueDate(y,q)});
+      if(!r||r.paid==null||r.paid==='') unpaid.push({year:y, quarter:q, due:irsQuarterlyDueDate(y,q)});
     });
   });
-  candidates.sort((a,b)=>a.due.localeCompare(b.due));
-  const next = candidates[0];
-  if(!next){
-    $('taxCountdownNum').textContent = '✓';
-    $('taxCountdownLabel').textContent = 'all caught up';
-    $('taxNextAmt').textContent = 'No payments due';
-    $('taxNextDue').textContent = '';
-  } else {
-    const due = new Date(next.due+'T00:00:00');
-    const days = Math.round((due-today)/86400000);
-    $('taxCountdownNum').textContent = Math.abs(days);
-    $('taxCountdownLabel').textContent = days<0 ? 'days overdue' : 'days away';
-    $('taxNextAmt').textContent = next.year+' '+next.quarter+' Estimated Tax';
-    $('taxNextDue').textContent = 'Due '+fmtDateLong(next.due);
-  }
+  unpaid.sort((a,b)=>a.due.localeCompare(b.due));
+  const nxt = unpaid[0];
+  const daysAway = nxt ? Math.round((new Date(nxt.due+'T00:00:00')-new Date(today+'T00:00:00'))/86400000) : null;
+
+  txSet('txKpiPaid', fmtMoney(paidCY));
+  txSet('txKpiPaidSub', 'federal estimated');
+  txSet('txKpiSep', fmtMoney(sepCY));
+  txSet('txKpiSepSub', 'this year');
+  txSet('txKpiReserve', fmtMoney(reserveTarget));
+  txSet('txKpiReserveSub', `@${state.taxRate||35}% fed + ${state.seRate||15.3}% SE`);
+
+  const gapEl = $('txKpiGap');
+  if(gapEl){ gapEl.textContent = gap>0 ? fmtMoney(gap) : '✓ On Track'; gapEl.style.color = gap>0?'var(--warn)':'var(--good)'; }
+  txSet('txKpiGapSub', gap>0?'still to set aside':'payments cover reserve');
+
+  const dueColor = daysAway==null?'inherit':daysAway<0?'var(--bad)':daysAway<=14?'var(--warn)':'var(--good)';
+  const nextEl = $('txKpiNextDue');
+  if(nextEl){ nextEl.textContent=nxt?nxt.year+' '+nxt.quarter:'—'; nextEl.style.color=dueColor; }
+  txSet('txKpiNextDueSub', nxt ? (daysAway<0?Math.abs(daysAway)+' days overdue':daysAway===0?'due today':daysAway+' days — '+fmtDateShort(nxt.due)) : 'All caught up 🎉');
 }
 
-function renderTaxYearTabs(years){
-  $('taxYearTabs').innerHTML = years.map(y=>`<button class="${y===taxActiveYear?'active':''}" onclick="selectTaxYear(${y})">${y}</button>`).join('');
-  $('taxTimelineYearLabel').textContent = '— '+taxActiveYear;
+function txRenderYearTabs(){
+  const el=$('txYearTabs'); if(!el) return;
+  el.innerHTML = taxYearsList().map(y=>`<button onclick="txSelectYear(${y})" style="background:${y===taxActiveYear?'var(--accent)':'rgba(255,255,255,0.07)'};color:${y===taxActiveYear?'#fff':'var(--text-dim)'};border:none;border-radius:6px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">${y}</button>`).join('');
 }
-function selectTaxYear(y){ taxActiveYear=y; taxActiveQuarter=null; renderTaxesTab(); }
-function selectTaxQuarter(q){ taxActiveQuarter=q; renderTaxTimeline(); }
-
-function renderTaxTimeline(){
-  const wrap = $('taxTimeline'); if(!wrap) return;
-  if(taxActiveQuarter===null){
-    const firstOpen = ['Q1','Q2','Q3','Q4'].find(q=>{ const r=getTaxRow(taxActiveYear,q); return !(r && r.paid!=null && r.paid!==''); });
-    taxActiveQuarter = firstOpen || 'Q1';
-  }
-  wrap.innerHTML = ['Q1','Q2','Q3','Q4'].map(q=>{
-    const r = getTaxRow(taxActiveYear,q);
-    const status = taxQuarterStatus(taxActiveYear,q, r?r.paid:null);
-    const due = irsQuarterlyDueDate(taxActiveYear,q);
-    const icon = status==='paid' ? '✓' : (status==='overdue' ? '!' : q.slice(1));
-    return `<div class="tl-item ${taxActiveQuarter===q?'selected':''}" onclick="selectTaxQuarter('${q}')">
-      <div class="tl-circle ${status}">${icon}</div>
-      <div class="tl-q">${q}</div>
-      <div class="tl-due">${fmtDateShort(due)}</div>
-      <div class="tl-status ${status}">${status}</div>
-    </div>`;
-  }).join('');
-  renderTaxDetailPanel();
+function txSelectYear(y){ taxActiveYear=y; renderTaxesTab(); }
+function txAddYear(){
+  const y=parseInt(prompt('Add tax year:', new Date().getFullYear()+1));
+  if(!y||isNaN(y)) return;
+  taxActiveYear=y; renderTaxesTab();
 }
 
-function renderTaxDetailPanel(){
-  const panel = $('taxDetailPanel'); if(!panel) return;
-  const y = taxActiveYear, q = taxActiveQuarter;
-  const r = getTaxRow(y,q);
-  const due = irsQuarterlyDueDate(y,q);
-  const status = taxQuarterStatus(y,q, r?r.paid:null);
-  const statusLabel = {paid:'Paid', overdue:'Overdue', soon:'Due soon', upcoming:'Upcoming'}[status];
-  panel.innerHTML = `
-    <div class="dp-head">
-      <strong>${y} ${q} &mdash; ${IRS_QUARTER_PERIODS[q]}</strong>
-      <span class="tl-status ${status}">${statusLabel} &middot; due ${fmtDateLong(due)}</span>
+function txRenderQuarters(){
+  const el=$('txQuarterGrid'); if(!el) return;
+  const y=taxActiveYear;
+  const qPeriods={Q1:'Jan 1 – Mar 31',Q2:'Apr 1 – May 31',Q3:'Jun 1 – Aug 31',Q4:'Sep 1 – Dec 31'};
+  const statusStyle={
+    paid:   {bg:'rgba(34,197,94,0.08)', badgeColor:'var(--good)',   badge:'✓ Paid'},
+    overdue:{bg:'rgba(239,68,68,0.10)', badgeColor:'var(--bad)',    badge:'⚠ Overdue'},
+    soon:   {bg:'rgba(245,158,11,0.10)',badgeColor:'var(--warn)',   badge:'Due Soon'},
+    upcoming:{bg:'rgba(255,255,255,0.03)',badgeColor:'var(--text-dim)',badge:'Upcoming'},
+  };
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">${
+    ['Q1','Q2','Q3','Q4'].map(q=>{
+      const r=getTaxRow(y,q);
+      const paid=r?.paid; const paidOn=r?.paidOn||''; const notes=r?.notes||'';
+      const status=taxQuarterStatus(y,q,paid);
+      const ss=statusStyle[status];
+      const due=irsQuarterlyDueDate(y,q);
+      const isOpen=txEditingQ===q;
+      return `<div onclick="txEditQuarter(${y},'${q}')" style="background:${isOpen?'rgba(99,102,241,0.08)':ss.bg};border:1px solid ${isOpen?'var(--accent)':'rgba(255,255,255,0.07)'};border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${isOpen?'var(--accent)':'rgba(255,255,255,0.07)'}'">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--text);">${q}</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${qPeriods[q]}</div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${ss.badgeColor};background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:20px;">${ss.badge}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Due ${fmtDateShort(due)}</div>
+        <div style="font-size:22px;font-weight:700;color:${paid!=null&&paid!==''?'var(--text)':'var(--text-dim)'};">${paid!=null&&paid!==''?fmtMoney(parseFloat(paid)):'—'}</div>
+        ${paidOn?`<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">Paid ${fmtDateShort(paidOn)}</div>`:''}
+        ${notes?`<div style="font-size:11px;color:var(--text-dim);margin-top:6px;font-style:italic;">${notes}</div>`:''}
+      </div>`;
+    }).join('')
+  }</div>`;
+
+  // render inline editor if open
+  const edWrap=$('txQEditor');
+  if(!edWrap) return;
+  if(!txEditingQ){ edWrap.style.display='none'; return; }
+  const q=txEditingQ;
+  const r=getTaxRow(y,q)||{paid:'',paidOn:'',notes:''};
+  const due=irsQuarterlyDueDate(y,q);
+  edWrap.style.display='block';
+  edWrap.innerHTML=`<div style="background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:20px;max-width:520px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:14px;">${y} ${q} &mdash; ${IRS_QUARTER_PERIODS[q]} &mdash; Due ${fmtDateLong(due)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="field"><label>Amount Paid ($)</label><input type="number" id="txEdAmt" step="0.01" value="${r.paid!=null&&r.paid!==''?r.paid:''}" placeholder="0.00"></div>
+      <div class="field"><label>Date Paid</label><input type="date" id="txEdDate" value="${r.paidOn||''}"></div>
     </div>
-    <div class="row2">
-      <div><label>Amount Paid</label><input type="number" step="0.01" id="dpPaid" value="${r&&r.paid!=null?r.paid:''}" placeholder="$0"></div>
-      <div><label>Paid On</label><input type="date" id="dpPaidOn" value="${r?(r.paidOn||''):''}"></div>
+    <div class="field" style="margin-bottom:14px;"><label>Notes</label><input type="text" id="txEdNotes" value="${r.notes||''}" placeholder="e.g. IRS Direct Pay conf #12345"></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn secondary" onclick="txSaveQuarter(${y},'${q}')">Save</button>
+      <button class="btn ghost" onclick="txClearQuarter(${y},'${q}')">Clear</button>
+      <button class="btn ghost sm" onclick="txEditingQ=null;renderTaxesTab();">Cancel</button>
     </div>
-    ${r ? `<button class="btn danger sm" style="margin-top:14px;" onclick="deleteTaxRow('${r.id}')">Delete this entry</button>` : ''}
-  `;
-  $('dpPaid').addEventListener('change', commitTaxDetailPanel);
-  $('dpPaidOn').addEventListener('change', commitTaxDetailPanel);
+  </div>`;
 }
-function commitTaxDetailPanel(){
-  const r = ensureTaxRow(taxActiveYear, taxActiveQuarter);
-  const paidVal = $('dpPaid').value;
-  r.paid = paidVal===''? null : parseFloat(paidVal);
-  r.paidOn = $('dpPaidOn').value;
-  saveState();
-  renderTaxesTab();
-  showToast('Payment updated.');
-}
-function deleteTaxRow(id){
-  if(!confirm('Delete this entry?')) return;
-  state.taxPayments = state.taxPayments.filter(r=>r.id!==id);
-  saveState();
+
+function txEditQuarter(year, quarter){
+  txEditingQ = txEditingQ===quarter ? null : quarter;
   renderTaxesTab();
 }
-
-function renderTaxDonut(){
-  const y = taxActiveYear;
-  let paid=0, overdue=0, upcoming=0, paidAmt=0;
-  ['Q1','Q2','Q3','Q4'].forEach(q=>{
-    const r = getTaxRow(y,q);
-    const status = taxQuarterStatus(y,q, r?r.paid:null);
-    if(status==='paid'){ paid++; paidAmt += parseFloat(r.paid)||0; }
-    else if(status==='overdue') overdue++;
-    else upcoming++;
-  });
-  const total = paid+overdue+upcoming || 1;
-  const segs = [
-    {label:'Paid', n:paid, color:'var(--green)'},
-    {label:'Overdue', n:overdue, color:'var(--red)'},
-    {label:'Upcoming', n:upcoming, color:'var(--gray)'}
-  ].filter(s=>s.n>0);
-  const r=50, cx=60, cy=60, circumference = 2*Math.PI*r;
-  let offset=0;
-  const svg = segs.map(s=>{
-    const len = (s.n/total)*circumference;
-    const circle = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${len} ${circumference-len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
-    offset += len;
-    return circle;
-  }).join('');
-  $('taxDonutSvg').innerHTML = svg + `<text x="60" y="65" text-anchor="middle" font-size="16" font-weight="700" fill="var(--text)">${y}</text>`;
-  $('taxDonutLegend').innerHTML = segs.map(s=>`<div class="lg-item"><span class="sw" style="background:${s.color}"></span>${s.label}<span class="lg-val">${s.n}/4</span></div>`).join('') +
-    `<div class="lg-item" style="margin-top:6px;border-top:1px solid var(--glass-border);padding-top:8px;">Paid this year<span class="lg-val">${fmtMoney(paidAmt)}</span></div>`;
+function txSaveQuarter(year, quarter){
+  const r=ensureTaxRow(year,quarter);
+  const amt=$('txEdAmt')?.value;
+  r.paid = amt===''?null:parseFloat(amt);
+  r.paidOn = $('txEdDate')?.value||'';
+  r.notes  = $('txEdNotes')?.value||'';
+  txEditingQ=null; saveState(); renderTaxesTab(); showToast('Payment saved.');
+}
+function txClearQuarter(year, quarter){
+  if(!confirm('Clear this payment?')) return;
+  const r=getTaxRow(year,quarter); if(!r) return;
+  r.paid=null; r.paidOn=''; r.notes='';
+  txEditingQ=null; saveState(); renderTaxesTab(); showToast('Cleared.');
 }
 
-function renderTaxTrend(years){
-  const sorted = [...years].sort((a,b)=>a-b).slice(-5);
-  const totals = sorted.map(y=> state.taxPayments.filter(r=>r.year===y).reduce((s,r)=>s+(parseFloat(r.paid)||0),0));
-  const max = Math.max(...totals, 1);
-  $('taxTrendBars').innerHTML = sorted.map((y,i)=>{
-    const h = Math.max(4, Math.round((totals[i]/max)*120));
-    return `<div class="tb-col"><div class="tb-val">${fmtMoney(totals[i])}</div><div class="tb-bar" style="height:${h}px;"></div><div class="tb-yr">${y}</div></div>`;
-  }).join('');
-}
+function txRenderInsights(){
+  const el=$('txInsightsBody'); if(!el) return;
+  const cy=new Date().getFullYear();
+  const taxRate=(state.taxRate||35)/100;
+  const seRate=(state.seRate||15.3)/100;
+  const cyBilled=state.entries.filter(e=>e.date&&e.date.startsWith(String(cy))).reduce((s,e)=>s+e.billed,0);
+  const sepCY=state.sep401k.filter(r=>r.year===cy).reduce((s,r)=>s+parseFloat(r.amount||0),0);
 
-function sepYearsList(){ return [...new Set(state.sep401k.map(r=>r.year))].sort((a,b)=>b-a).slice(0,3); }
+  // Annualize based on days elapsed
+  const today=new Date(todayISO()+'T00:00:00');
+  const cyStart=new Date(cy+'-01-01T00:00:00');
+  const daysElapsed=Math.max(1,Math.floor((today-cyStart)/86400000)+1);
+  const projAnnual=(cyBilled/daysElapsed)*365;
 
-function renderSepSummary(){
-  const years = sepYearsList();
-  $('taxSepSummary').innerHTML = years.map(y=>{
-    const total = state.sep401k.filter(r=>r.year===y).reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-    return `<div class="ss-tile"><div class="l">${y}</div><div class="v">${fmtMoney(total)}</div></div>`;
-  }).join('') + `<div class="ss-tile"><div class="l">All-time</div><div class="v">${fmtMoney(state.sep401k.reduce((s,r)=>s+(parseFloat(r.amount)||0),0))}</div></div>`;
+  // SE tax
+  const seNet=projAnnual*0.9235;
+  const seTotal=seNet*seRate;
+  const halfSE=seTotal/2;
 
-  const emp = state.sep401k.filter(r=>r.type==='Employee').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const er = state.sep401k.filter(r=>r.type==='Employer').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const total = emp+er || 1;
-  $('taxSplitBar').innerHTML = `<div class="sb-employee" style="width:${emp/total*100}%"></div><div class="sb-employer" style="width:${er/total*100}%"></div>`;
-  $('taxSplitLegend').innerHTML = `<span><span class="sw" style="background:var(--accent)"></span>Employee ${fmtMoney(emp)}</span><span><span class="sw" style="background:var(--accent-2)"></span>Employer ${fmtMoney(er)}</span>`;
+  // Federal
+  const fedTaxable=Math.max(0,projAnnual-halfSE-sepCY);
+  const fedTotal=fedTaxable*taxRate;
+  const totalEst=fedTotal+seTotal;
 
-  const thisYear = new Date().getFullYear();
-  $('taxKpiSepYTD').textContent = fmtMoney(state.sep401k.filter(r=>r.year===thisYear).reduce((s,r)=>s+(parseFloat(r.amount)||0),0));
-  $('taxKpiSepTotal').textContent = fmtMoney(state.sep401k.reduce((s,r)=>s+(parseFloat(r.amount)||0),0));
-  $('taxKpiPaidYTD').textContent = fmtMoney(state.taxPayments.filter(r=>r.year===thisYear).reduce((s,r)=>s+(parseFloat(r.paid)||0),0));
-}
+  // Paid so far this year
+  const paidCY=state.taxPayments.filter(r=>r.year===cy&&r.paid!=null&&r.paid!=='').reduce((s,r)=>s+parseFloat(r.paid||0),0);
 
-function renderSepList(){
-  const sorted = [...state.sep401k].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const rowsHtml = sorted.map(r=>`
-    <div class="sep-row" data-sid="${r.id}">
-      <input type="number" data-sfield="year" value="${r.year}">
-      <select data-sfield="type"><option ${r.type==='Employee'?'selected':''}>Employee</option><option ${r.type==='Employer'?'selected':''}>Employer</option></select>
-      <input type="number" step="0.01" data-sfield="amount" value="${r.amount}">
-      <input type="date" data-sfield="date" value="${r.date||''}">
-      <button class="icon-btn" data-sdel="${r.id}">&#10005;</button>
-    </div>`).join('');
-  $('taxSepList').innerHTML = rowsHtml + `
-    <div class="sep-row draft-row">
-      <input type="number" id="sepDraftYear" placeholder="Yr">
-      <select id="sepDraftType"><option>Employee</option><option>Employer</option></select>
-      <input type="number" step="0.01" id="sepDraftAmount" placeholder="$0">
-      <input type="date" id="sepDraftDate">
-      <span></span>
+  // Safe harbor (110% of prior year)
+  const priorYearTax=state.priorYearTax||0;
+  const safeHarbor=priorYearTax>0?priorYearTax*1.1:null;
+
+  // Quarters remaining (unpaid)
+  const quartersLeft=Math.max(1,['Q1','Q2','Q3','Q4'].filter(q=>{ const r=getTaxRow(cy,q); return !(r&&r.paid!=null&&r.paid!==''); }).length);
+  const targetTotal=safeHarbor?Math.max(safeHarbor,totalEst*0.9):totalEst*0.9;
+  const remaining=Math.max(0,targetTotal-paidCY);
+  const suggestedNext=quartersLeft>0?remaining/quartersLeft:0;
+
+  const safeHarborHtml = safeHarbor ? `
+    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px;">🛡 Safe Harbor (110% of ${cy-1})</div>
+      <div style="font-size:22px;font-weight:700;">${fmtMoney(safeHarbor)}</div>
+      <div style="font-size:11.5px;margin-top:4px;">${paidCY>=safeHarbor?`<span style="color:var(--good)">✓ Covered</span>`:`<span style="color:var(--warn)">${fmtMoney(safeHarbor-paidCY)} remaining</span>`}</div>
+    </div>` : `
+    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">🛡 Safe Harbor</div>
+      <div style="font-size:13px;color:var(--text-dim);">Set Prior Year Total Tax in Settings to enable safe harbor tracking.</div>
     </div>`;
-  $('taxSepList').querySelectorAll('[data-sfield]').forEach(input=>{
-    input.addEventListener('change', ()=>{
-      const row = state.sep401k.find(r=>r.id===input.closest('[data-sid]').dataset.sid);
-      if(!row) return;
-      const f = input.dataset.sfield;
-      row[f] = (f==='year'||f==='amount') ? (parseFloat(input.value)||0) : input.value;
-      saveState();
-      renderTaxesTab();
+
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;">
+    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px;">Projected Annual Billing</div>
+      <div style="font-size:22px;font-weight:700;">${fmtMoney(projAnnual)}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">at current pace · ${daysElapsed}d elapsed</div>
+    </div>
+    <div style="background:rgba(239,68,68,0.07);border-radius:10px;padding:16px;">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px;">SE Tax Estimate (${(seRate*100).toFixed(1)}%)</div>
+      <div style="font-size:22px;font-weight:700;color:var(--bad);">${fmtMoney(seTotal)}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">on net SE income of ${fmtMoney(seNet)}</div>
+    </div>
+    <div style="background:rgba(245,158,11,0.07);border-radius:10px;padding:16px;">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px;">Federal Estimate (${(taxRate*100).toFixed(0)}%)</div>
+      <div style="font-size:22px;font-weight:700;color:var(--warn);">${fmtMoney(fedTotal)}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">on ~${fmtMoney(fedTaxable)} taxable</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:16px;">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">💡 Suggested Next Payment</div>
+      <div style="font-size:28px;font-weight:700;color:var(--accent);">${fmtMoney(suggestedNext)}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px;">covers ${quartersLeft} remaining quarter${quartersLeft!==1?'s':''} to reach ${safeHarbor?'safe harbor / 90%':'90%'} of estimated</div>
+    </div>
+    ${safeHarborHtml}
+  </div>`;
+}
+
+function txRenderSep(){
+  const el=$('txSepBody'); if(!el) return;
+  const rows=[...state.sep401k].sort((a,b)=>String(b.year).localeCompare(String(a.year))||(b.date||'').localeCompare(a.date||''));
+  const byYear={};
+  rows.forEach(r=>{ byYear[r.year]=(byYear[r.year]||0)+parseFloat(r.amount||0); });
+
+  if(!rows.length){
+    el.innerHTML='<p style="color:var(--text-dim);font-size:13px;">No contributions yet — click + Add to log one.</p>';
+    return;
+  }
+
+  el.innerHTML=`<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">${
+    Object.entries(byYear).sort((a,b)=>b[0]-a[0]).map(([y,tot])=>`<div style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:8px;padding:8px 14px;"><div style="font-size:11px;color:var(--text-dim);">${y}</div><div style="font-size:17px;font-weight:700;color:#a78bfa;">${fmtMoney(tot)}</div></div>`).join('')
+  }</div>
+  <div style="overflow-x:auto;">
+  <table class="editable-table"><thead><tr><th>Year</th><th>Type</th><th class="num">Amount</th><th>Date</th><th>Notes</th><th></th></tr></thead>
+  <tbody>${rows.map(r=>`<tr data-sepid="${r.id}">
+    <td><input class="cell-input" type="number" data-sf="year" value="${r.year}" style="width:60px;"></td>
+    <td><select class="cell-input" data-sf="type"><option ${r.type==='Employee'?'selected':''}>Employee</option><option ${r.type==='Employer'?'selected':''}>Employer</option></select></td>
+    <td class="num"><input class="cell-input" type="number" step="0.01" data-sf="amount" value="${r.amount||0}" style="width:90px;text-align:right;"></td>
+    <td><input class="cell-input" type="date" data-sf="date" value="${r.date||''}"></td>
+    <td><input class="cell-input" type="text" data-sf="notes" value="${r.notes||''}" placeholder="—" style="width:150px;"></td>
+    <td><button class="icon-btn" data-sepdel="${r.id}" title="Delete">&#10005;</button></td>
+  </tr>`).join('')}</tbody></table></div>`;
+
+  el.querySelectorAll('[data-sf]').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const row=state.sep401k.find(r=>r.id===inp.closest('[data-sepid]').dataset.sepid); if(!row) return;
+      const f=inp.dataset.sf;
+      row[f]=(f==='year'||f==='amount')?parseFloat(inp.value)||0:inp.value;
+      saveState(); txRenderSep();
     });
   });
-  $('taxSepList').querySelectorAll('[data-sdel]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+  el.querySelectorAll('[data-sepdel]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
       if(!confirm('Delete this contribution?')) return;
-      state.sep401k = state.sep401k.filter(r=>r.id!==btn.dataset.sdel);
-      saveState();
-      renderTaxesTab();
+      state.sep401k=state.sep401k.filter(r=>r.id!==btn.dataset.sepdel);
+      saveState(); renderTaxesTab();
     });
   });
-  ['sepDraftYear','sepDraftType','sepDraftAmount','sepDraftDate'].forEach(id=>{ $(id).addEventListener('change', commitSepDraft); });
-}
-function commitSepDraft(){
-  const year = parseFloat($('sepDraftYear').value);
-  const type = $('sepDraftType').value;
-  const amount = parseFloat($('sepDraftAmount').value);
-  const date = $('sepDraftDate').value;
-  if(!year || !amount) return;
-  state.sep401k.push({id:uid(), year, type, amount, date});
-  saveState();
-  renderTaxesTab();
-  showToast('SEP contribution added.');
 }
 
-function setTaxView(mode){
-  taxViewMode = mode;
-  $('taxDashboardView').style.display = mode==='dashboard' ? '' : 'none';
-  $('taxTableView').style.display = mode==='table' ? '' : 'none';
-  $('taxViewDashBtn').classList.toggle('active', mode==='dashboard');
-  $('taxViewTableBtn').classList.toggle('active', mode==='table');
+function txAddSep(){
+  state.sep401k.push({id:uid(),year:new Date().getFullYear(),type:'Employee',amount:0,date:todayISO(),notes:''});
+  saveState(); renderTaxesTab();
 }
+/* ---- END NEW TAXES TAB ---- */
 
-function renderSrcTaxTable(){
-  const tbody = $('taxSrcTaxBody'); if(!tbody) return;
-  const rows = [...state.taxPayments].sort((a,b)=> b.year-a.year || a.quarter.localeCompare(b.quarter));
-  tbody.innerHTML = rows.map(r=>{
-    const due = irsQuarterlyDueDate(r.year, r.quarter);
-    const status = taxQuarterStatus(r.year, r.quarter, r.paid);
-    return `<tr data-tid="${r.id}">
-      <td><input type="number" data-tfield="year" value="${r.year}"></td>
-      <td><select data-tfield="quarter">${['Q1','Q2','Q3','Q4'].map(q=>`<option ${r.quarter===q?'selected':''}>${q}</option>`).join('')}</select></td>
-      <td>${IRS_QUARTER_PERIODS[r.quarter]||r.period||''}</td>
-      <td style="color:var(--text-dim);">${fmtDateLong(due)}</td>
-      <td><input type="number" step="0.01" data-tfield="paid" value="${r.paid==null?'':r.paid}"></td>
-      <td><input type="date" data-tfield="paidOn" value="${r.paidOn||''}"></td>
-      <td class="tl-status ${status}">${status}</td>
-      <td><button class="icon-btn" data-tdel="${r.id}">&#10005;</button></td>
-    </tr>`;
-  }).join('');
-  tbody.querySelectorAll('[data-tfield]').forEach(input=>{
-    input.addEventListener('change', ()=>{
-      const row = state.taxPayments.find(r=>r.id===input.closest('tr').dataset.tid);
-      if(!row) return;
-      const f = input.dataset.tfield;
-      row[f] = (f==='year') ? (parseFloat(input.value)||row.year) : (f==='paid' ? (input.value===''?null:parseFloat(input.value)) : input.value);
-      saveState();
-      renderTaxesTab();
-    });
-  });
-  tbody.querySelectorAll('[data-tdel]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      if(!confirm('Delete this payment row?')) return;
-      state.taxPayments = state.taxPayments.filter(r=>r.id!==btn.dataset.tdel);
-      saveState();
-      renderTaxesTab();
-    });
-  });
-}
-function addSrcTaxRow(){
-  const y = new Date().getFullYear();
-  state.taxPayments.push({id:uid(), year:y, quarter:'Q1', period:IRS_QUARTER_PERIODS.Q1, paid:null, paidOn:''});
-  saveState();
-  renderTaxesTab();
-}
-
-function renderSrcSepTable(){
-  const tbody = $('taxSrcSepBody'); if(!tbody) return;
-  const rows = [...state.sep401k].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  tbody.innerHTML = rows.map(r=>`
-    <tr data-sid2="${r.id}">
-      <td><input type="number" data-s2field="year" value="${r.year}"></td>
-      <td><select data-s2field="type"><option ${r.type==='Employee'?'selected':''}>Employee</option><option ${r.type==='Employer'?'selected':''}>Employer</option></select></td>
-      <td><input type="number" step="0.01" data-s2field="amount" value="${r.amount}"></td>
-      <td><input type="date" data-s2field="date" value="${r.date||''}"></td>
-      <td><button class="icon-btn" data-s2del="${r.id}">&#10005;</button></td>
-    </tr>`).join('');
-  tbody.querySelectorAll('[data-s2field]').forEach(input=>{
-    input.addEventListener('change', ()=>{
-      const row = state.sep401k.find(r=>r.id===input.closest('tr').dataset.sid2);
-      if(!row) return;
-      const f = input.dataset.s2field;
-      row[f] = (f==='year'||f==='amount') ? (parseFloat(input.value)||0) : input.value;
-      saveState();
-      renderTaxesTab();
-    });
-  });
-  tbody.querySelectorAll('[data-s2del]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      if(!confirm('Delete this contribution?')) return;
-      state.sep401k = state.sep401k.filter(r=>r.id!==btn.dataset.s2del);
-      saveState();
-      renderTaxesTab();
-    });
-  });
-}
-function addSrcSepRow(){
-  state.sep401k.push({id:uid(), year:new Date().getFullYear(), type:'Employee', amount:0, date:''});
-  saveState();
-  renderTaxesTab();
-}
-
-function populateSlideYearOptions(){
-  const sel = $('slideTaxYear'); if(!sel) return;
-  const cur = new Date().getFullYear();
-  const years = new Set(taxYearsList());
-  years.add(cur+1);
-  sel.innerHTML = [...years].sort((a,b)=>b-a).map(y=>`<option ${y===cur?'selected':''}>${y}</option>`).join('');
-}
-function openTaxSlide(){
-  $('taxBackdrop').classList.add('show');
-  $('taxSlideover').classList.add('show');
-  $('slideTaxPaid').value='';
-  $('slideTaxPaidOn').value='';
-  updateSlideDuePreview();
-}
-function closeTaxSlide(){
-  $('taxBackdrop').classList.remove('show');
-  $('taxSlideover').classList.remove('show');
-}
-function updateSlideDuePreview(){
-  const y = parseInt($('slideTaxYear').value), q = $('slideTaxQuarter').value;
-  if(!y) return;
-  $('slideTaxDuePreview').textContent = 'Due date: '+fmtDateLong(irsQuarterlyDueDate(y,q))+' (auto-synced)';
-}
-function saveSlideTaxPayment(){
-  const y = parseInt($('slideTaxYear').value), q = $('slideTaxQuarter').value;
-  const paidVal = $('slideTaxPaid').value;
-  const paidOn = $('slideTaxPaidOn').value;
-  const r = ensureTaxRow(y,q);
-  r.paid = paidVal===''? null : parseFloat(paidVal);
-  r.paidOn = paidOn;
-  saveState();
-  taxActiveYear = y; taxActiveQuarter = q;
-  renderTaxesTab();
-  closeTaxSlide();
-  showToast('Payment saved.');
-}
-if($('slideTaxYear')) $('slideTaxYear').addEventListener('change', updateSlideDuePreview);
-if($('slideTaxQuarter')) $('slideTaxQuarter').addEventListener('change', updateSlideDuePreview);
+// (old taxes tab functions removed — replaced by txRender* above)
 
 /* ---------- EXPENSES TAB (Business + Property) ---------- */
 const BIZ_CATS = [
