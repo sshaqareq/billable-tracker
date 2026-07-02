@@ -692,7 +692,10 @@
   <div class="card" id="projectsDrillCard" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <h2 style="margin:0;">Projects &middot; 2026</h2>
-      <button class="btn ghost sm" id="projectsDrillClose">&#10005; Close</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-size:11.5px;color:var(--text-dim);">Click ✕ to exclude from count</span>
+        <button class="btn ghost sm" id="projectsDrillClose">&#10005; Close</button>
+      </div>
     </div>
     <div id="projectsDrillBody"></div>
   </div>
@@ -959,6 +962,7 @@ const DEFAULT_STATE = {
   weeklyTarget: 24,
   monthlyRevenueTarget: 0,
   annualGoal: 200000,
+  excludedProjects: [],
   bus: ['Visa (General)','Issuing Solutions','Digital Enablement','Foundation Solutions','CES','Other'],
   assets: ['Pitch Deck','Strategy','Messaging','Webinar','Collateral','Battlecards','Demo Script','Web / Digital Asset','RFP','UI','Comms / Admin','Unused Hours','Other'],
   tasks: ['Framing','Re-work','Calls - Check-in','Calls - Client','Calls - Internal','Calls - Review','Calls - Kick-off','Creative Handoff','Review','Comms / Admin','Research','Brainstorming','Learning','Unused Hours','Other'],
@@ -2134,30 +2138,62 @@ function _renderDashboard(){
   const _gi=$('goalAdjust'); if(_gi) _gi.value=state.annualGoal||200000;
   renderHrsNeeded();
 
-  // Unique Projects drill-down
+  // Unique Projects drill-down with exclude toggle
+  if(!state.excludedProjects) state.excludedProjects = [];
+  const _excluded = new Set(state.excludedProjects);
+
+  function renderProjectsDrill(){
+    const body = $('projectsDrillBody');
+    if(!body) return;
+    const projTotals = {};
+    filtered.filter(e=>!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project)&&!EXCLUDE_ASSETS.has(e.asset))
+            .forEach(e=>{ projTotals[e.project]=(projTotals[e.project]||0)+e.billed; });
+    const sorted = Object.entries(projTotals).sort((a,b)=>b[1]-a[1]);
+    const activeCount = sorted.filter(([p])=>!_excluded.has(p)).length;
+    // Update the KPI tile count live
+    $('kpiUniqueProjects').textContent = activeCount;
+    body.innerHTML = `<table class="data-table" style="width:100%;">
+      <thead><tr><th>Project</th><th class="num">Billed</th><th style="width:40px;"></th></tr></thead>
+      <tbody>${sorted.map(([p,b])=>{
+        const isEx = _excluded.has(p);
+        return `<tr style="${isEx?'opacity:0.35;':''}">
+          <td style="font-size:13px;">${p}</td>
+          <td class="num" style="font-size:13px;">${fmtMoney(b)}</td>
+          <td style="text-align:center;">
+            <button onclick="toggleProjectExclusion(${JSON.stringify(p)})" title="${isEx?'Restore':'Exclude'}"
+              style="background:none;border:none;cursor:pointer;font-size:15px;color:${isEx?'var(--good)':'var(--bad)'};padding:2px 6px;">
+              ${isEx?'↩':'✕'}
+            </button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>
+      ${_excluded.size>0?`<div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);">${_excluded.size} project${_excluded.size>1?'s':''} excluded from count — click ↩ to restore</div>`:''}`;
+  }
+
+  window.toggleProjectExclusion = function(proj){
+    if(!state.excludedProjects) state.excludedProjects=[];
+    const idx = state.excludedProjects.indexOf(proj);
+    if(idx>=0) state.excludedProjects.splice(idx,1); else state.excludedProjects.push(proj);
+    _excluded.clear(); state.excludedProjects.forEach(p=>_excluded.add(p));
+    renderProjectsDrill();
+    scheduleSave();
+  };
+
   const projCard = $('kpiProjectsCard');
   if(projCard){
     projCard.onclick = ()=>{
       const dc = $('projectsDrillCard');
       if(!dc) return;
-      if(dc.style.display==='none'){
-        dc.style.display='block';
-        const body = $('projectsDrillBody');
-        // build project list with billed totals
-        const projTotals = {};
-        filtered.filter(e=>!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project)&&!EXCLUDE_ASSETS.has(e.asset))
-                .forEach(e=>{ projTotals[e.project]=(projTotals[e.project]||0)+e.billed; });
-        const sorted = Object.entries(projTotals).sort((a,b)=>b[1]-a[1]);
-        body.innerHTML = `<table class="data-table"><thead><tr><th>Project</th><th>Billed</th></tr></thead><tbody>
-          ${sorted.map(([p,b])=>`<tr><td>${p}</td><td>${fmtMoney(b)}</td></tr>`).join('')}
-        </tbody></table>`;
-      } else {
-        dc.style.display='none';
-      }
+      if(dc.style.display==='none'){ dc.style.display='block'; renderProjectsDrill(); }
+      else { dc.style.display='none'; }
     };
   }
   const pdc = $('projectsDrillClose');
   if(pdc) pdc.onclick = ()=>{ $('projectsDrillCard').style.display='none'; };
+
+  // Apply exclusions to the count on initial render
+  if(_excluded.size>0) $('kpiUniqueProjects').textContent = uniqueProjects.filter(p=>!_excluded.has(p)).length;
 
   // Charts
   renderMonthlyChart();
