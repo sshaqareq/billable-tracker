@@ -3690,7 +3690,6 @@ boot();
 
   window.timerLogIt = function(){
     const total = startTs !== null ? (performance.now()-startTs) : elapsed;
-    if(total < 60000){ alert('Timer under 1 minute — keep going!'); return; }
     const hrs = total/(1000*60*60);
     const rounded = Math.ceil(hrs*4)/4; // ceil to next 15 min increment
     // Pre-fill the hours column of a new row if there's a quick-add input
