@@ -2177,7 +2177,7 @@ function _renderDashboard(){
     if(idx>=0) state.excludedProjects.splice(idx,1); else state.excludedProjects.push(proj);
     _excluded.clear(); state.excludedProjects.forEach(p=>_excluded.add(p));
     renderProjectsDrill();
-    scheduleSave();
+    saveState();
   };
 
   const projCard = $('kpiProjectsCard');
