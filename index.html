@@ -22,25 +22,26 @@
 </script>
 <style>
   :root{
-    --bg-1:#0b0e1a;
-    --bg-2:#11152a;
-    --accent:#5ee7ff;
-    --accent-2:#7c5cff;
-    --good:#4ade80;
-    --warn:#fbbf24;
-    --bad:#f87171;
-    --glass: rgba(255,255,255,0.06);
-    --glass-border: rgba(255,255,255,0.14);
-    --text: #eef1f8;
-    --text-dim: #98a0b8;
+    --bg-1:#0f1117;
+    --bg-2:#161b27;
+    --card:#1e2433;
+    --accent:#6366f1;
+    --accent-2:#8b5cf6;
+    --good:#22c55e;
+    --warn:#f59e0b;
+    --bad:#ef4444;
+    --glass: rgba(255,255,255,0.04);
+    --glass-border: rgba(255,255,255,0.08);
+    --text: #f1f5f9;
+    --text-dim: #64748b;
     --green: var(--good);
-    --green-dim: rgba(74,222,128,0.16);
+    --green-dim: rgba(34,197,94,0.12);
     --amber: var(--warn);
-    --amber-dim: rgba(251,191,36,0.16);
+    --amber-dim: rgba(245,158,11,0.12);
     --red: var(--bad);
-    --red-dim: rgba(248,113,113,0.16);
+    --red-dim: rgba(239,68,68,0.12);
     --gray: var(--text-dim);
-    --gray-dim: rgba(152,160,184,0.16);
+    --gray-dim: rgba(100,116,139,0.12);
   }
   *{box-sizing:border-box;}
   body{
@@ -446,6 +447,39 @@
   .pin-key.ghost{background:transparent;border-color:transparent;}
 
   @keyframes pinShake{0%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}100%{transform:translateX(0)}}
+
+  /* ===== PRINT / PDF EXPORT ===== */
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff !important; color: #111 !important; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    nav, .filter-bar, #dashFilterBar, .year-toggles, #viewModeToggle,
+    #goalAdjustBtn, #projectsDrillClose, #drillCloseBtn, #drillOpenLogBtn,
+    .btn, #kpiProjectsCard span[style*="cursor"], footer,
+    #projectsDrillCard, #drillDetailCard, #taskMixDrillBar { display: none !important; }
+    .tab-panel { display: block !important; }
+    #tab-log, #tab-taxes, #tab-expenses, #tab-travel, #tab-settings { display: none !important; }
+    #tab-dashboard { display: block !important; }
+    .card { background: #fff !important; border: 1px solid #e2e8f0 !important; box-shadow: none !important;
+            border-radius: 8px !important; break-inside: avoid; margin-bottom: 12px !important; }
+    .stat-card .value { color: #1e293b !important; }
+    .stat-card .label { color: #64748b !important; }
+    .stat-card .sub { color: #94a3b8 !important; }
+    .grid-3k { display: grid !important; grid-template-columns: repeat(3,1fr) !important; gap: 10px !important; }
+    .grid2 { display: grid !important; grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+    .pacing-bar-track { background: #e2e8f0 !important; }
+    .pacing-bar-fill { background: #6366f1 !important; }
+    .pacing-bar-fill.ahead { background: #22c55e !important; }
+    .pacing-bar-fill.behind { background: #ef4444 !important; }
+    .delta-up { color: #16a34a !important; }
+    .delta-dn { color: #dc2626 !important; }
+    h2 { color: #1e293b !important; }
+    h2 span { color: #94a3b8 !important; }
+    .chart-box { height: 200px !important; }
+    .chart-box.tall { height: 220px !important; }
+    @page { size: landscape; margin: 14mm; }
+    #pdf-header { display: block !important; }
+  }
+  #pdf-header { display: none; }
 </style>
 </head>
 <body>
@@ -497,7 +531,7 @@
         <h1>Billable Hours</h1>
         <small id="rateLabel">$175/hr &middot; consulting tracker</small>
         <small id="syncStatus" style="display:block;margin-top:2px;"></small>
-      </div>
+      </div><button class="btn ghost sm" id="exportPdfBtn" style="margin-left:8px;font-size:12px;">&#128438; Export PDF</button>
     </div>
     <nav>
       <button class="active" data-tab="log">Log Hours</button>
@@ -553,6 +587,16 @@
     </div>
 
     <div class="card">
+      <!-- Stopwatch -->
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:12px;">
+        <div style="font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:3px;color:var(--accent);min-width:120px;" id="timerDisplay">00:00:00</div>
+        <div style="display:flex;gap:8px;">
+          <button id="timerToggleBtn" onclick="timerToggle()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">▶ Start</button>
+          <button onclick="timerReset()" style="background:rgba(255,255,255,0.08);color:var(--text-dim);border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">↺ Reset</button>
+          <button onclick="timerLogIt()" style="background:rgba(99,102,241,0.15);color:var(--accent);border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;" title="Round to nearest 15min and prefill hours field">↳ Log hours</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-dim);" id="timerStatus">Stopped · chimes every 30m</div>
+      </div>
       <h2>Hour Log <span id="recentCount"></span> <span style="font-weight:500;color:var(--text-dim);">&mdash; click any cell to edit. Type a new BU/Asset/Task to add it on the fly.</span></h2>
       <div id="logFilterBanner"></div>
       <div class="chip-row" id="quickRepeatRow"></div>
@@ -585,11 +629,17 @@
   <div class="tab-panel" id="tab-dashboard">
   <div class="card filter-bar" id="dashFilterBar"></div>
 
+  <!-- Row 1: 3 primary KPIs -->
   <div class="grid-3k">
     <div class="card stat-card">
       <div class="label">Billed YTD &middot; 2026</div>
       <div class="value" id="kpiBilledYTD">$0</div>
       <div class="sub" id="kpiBilledYTDHrs">0h logged</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border);">
+        <div class="label" style="margin-bottom:4px;">Run Rate &middot; 2026</div>
+        <div style="font-size:20px;font-weight:700;color:var(--accent);" id="kpiRunRate">$0</div>
+        <div class="sub">projected full year</div>
+      </div>
     </div>
     <div class="card stat-card">
       <div class="label">Annual Goal Pacing</div>
@@ -608,48 +658,46 @@
       </div>
     </div>
     <div class="card stat-card">
-      <div class="label">2026 Run Rate</div>
-      <div class="value" id="kpiRunRate">$0</div>
-      <div class="sub">projected full year</div>
+      <div class="label">Effective Hourly Rate</div>
+      <div class="value" id="kpiEffectiveRate">$0</div>
+      <div class="sub" id="kpiEffectiveRateSub">vs $175 contracted</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border);">
+        <div class="label" style="margin-bottom:4px;">Weekly Avg &middot; 2026</div>
+        <div style="font-size:20px;font-weight:700;color:var(--accent);" id="kpiWeeklyAvg">$0</div>
+        <div class="sub" id="kpiWeeklyAvgSub">0h/wk avg</div>
+      </div>
     </div>
   </div>
 
+  <!-- Row 2: secondary KPIs -->
   <div class="grid-3k">
-    <div class="card stat-card">
-      <div class="label">This Month</div>
-      <div class="value" id="kpiThisMonth">$0</div>
-      <div class="sub" id="kpiThisMonthVsLY">&mdash;</div>
-    </div>
-    <div class="card stat-card">
-      <div class="label">Weekly Avg &middot; 2026</div>
-      <div class="value" id="kpiWeeklyAvg">$0</div>
-      <div class="sub" id="kpiWeeklyAvgSub">0h/wk</div>
-    </div>
-    <div class="card stat-card">
-      <div class="label">Avg $/Day Active</div>
-      <div class="value" id="kpiAvgDay">$0</div>
-      <div class="sub">days with hours logged</div>
-    </div>
-  </div>
-
-  <div class="grid-3k">
-    <div class="card stat-card">
-      <div class="label">Unique Projects &middot; 2026</div>
+    <div class="card stat-card" id="kpiProjectsCard" style="cursor:pointer;" title="Click to see project breakdown">
+      <div class="label">Unique Projects &middot; 2026 <span style="font-size:10px;color:var(--accent);">&#9654; click</span></div>
       <div class="value" id="kpiUniqueProjects">0</div>
       <div class="sub">deliverable-linked only</div>
     </div>
     <div class="card stat-card">
       <div class="label">Unused Hours &middot; 2026</div>
       <div class="value" id="kpiUnusedHrs">0h</div>
-      <div class="sub" id="kpiUnusedVal">$0 at rate</div>
+      <div class="sub" id="kpiUnusedVal">retainer hrs not worked</div>
     </div>
     <div class="card stat-card">
-      <div class="label">Credits Given &middot; 2026</div>
-      <div class="value" id="kpiCreditsHrs">0h</div>
-      <div class="sub" id="kpiCreditsVal">$0 at rate</div>
+      <div class="label">YTD vs Same Point LY</div>
+      <div class="value" id="kpiVsLY">&mdash;</div>
+      <div class="sub" id="kpiVsLYSub">&mdash;</div>
     </div>
   </div>
 
+  <!-- Projects drill-down panel -->
+  <div class="card" id="projectsDrillCard" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h2 style="margin:0;">Projects &middot; 2026</h2>
+      <button class="btn ghost sm" id="projectsDrillClose">&#10005; Close</button>
+    </div>
+    <div id="projectsDrillBody"></div>
+  </div>
+
+  <!-- Monthly Revenue Chart -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
       <h2 style="margin:0;">Monthly Revenue</h2>
@@ -664,36 +712,34 @@
     <div class="chart-box tall"><canvas id="chartTrend"></canvas></div>
   </div>
 
+  <!-- Task Mix + Work Type Trend -->
   <div class="grid2">
     <div class="card">
-      <h2>Top 5 Projects &middot; 2026 <span>by billed</span></h2>
-      <div class="chart-box"><canvas id="chartProjects"></canvas></div>
+      <h2>Task Mix <span id="taskMixLabel">all time &middot; billed $</span></h2>
+      <div class="chart-box"><canvas id="chartTaskMix"></canvas></div>
+      <div id="taskMixDrillBar" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--glass-border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-dim);" id="taskMixDrillTitle"></span>
+          <button class="btn ghost sm" id="taskMixDrillBack">&#8592; Back</button>
+        </div>
+        <canvas id="chartTaskMixDrill" style="max-height:180px;"></canvas>
+      </div>
     </div>
     <div class="card">
-      <h2>Year-over-Year <span>monthly billed</span></h2>
-      <div class="chart-box"><canvas id="chartYoY"></canvas></div>
+      <h2>Work Type Trend <span>monthly hours</span></h2>
+      <div class="chart-box"><canvas id="chartWorkTrend"></canvas></div>
     </div>
   </div>
 
+  <!-- Asset Mix + Top Projects -->
   <div class="grid2">
     <div class="card">
-      <h2>Asset Mix <span>2026 &middot; hours</span></h2>
+      <h2>Asset Mix <span>hours &middot; excl. admin</span></h2>
       <div class="chart-box"><canvas id="chartAsset"></canvas></div>
     </div>
     <div class="card">
-      <h2>Solution Mix <span>2026 &middot; hours</span></h2>
-      <div class="chart-box"><canvas id="chartSolution"></canvas></div>
-    </div>
-  </div>
-
-  <div class="grid2">
-    <div class="card">
-      <h2>Top 5 Tasks &middot; 2026 <span>by hours</span></h2>
-      <div class="chart-box"><canvas id="chartTasks"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Weekly Pacing</h2>
-      <div id="pacingBody"></div>
+      <h2>Top 5 Projects <span>by billed</span></h2>
+      <div class="chart-box"><canvas id="chartProjects"></canvas></div>
     </div>
   </div>
 
@@ -701,21 +747,16 @@
   <div class="card" id="drillDetailCard" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <h2 style="margin:0;" id="drillDetailTitle">Detail</h2>
-      <button class="btn ghost sm" id="drillCloseBtn">✕ Close</button>
+      <button class="btn ghost sm" id="drillCloseBtn">&#10005; Close</button>
     </div>
-    <div style="overflow-x:auto;">
-      <table class="data-table" id="drillDetailTable">
-        <thead><tr>
-          <th>Date</th><th>Project</th><th>Asset</th><th>Task</th><th>Description</th><th>Hours</th><th>Billed</th>
-        </tr></thead>
-        <tbody id="drillDetailBody"></tbody>
-      </table>
-    </div>
-    <div style="margin-top:10px;font-size:12.5px;color:var(--text-dim);" id="drillDetailSummary"></div>
+    <div id="drillDetailSummary" style="margin-bottom:10px;font-size:13px;color:var(--text-dim);"></div>
+    <div style="overflow-x:auto;"><table class="data-table" id="drillDetailTable">
+      <thead><tr id="drillDetailHead"></tr></thead>
+      <tbody id="drillDetailBody"></tbody>
+    </table></div>
+    <button class="btn ghost sm" id="drillOpenLogBtn" style="margin-top:12px;">Open in Log tab</button>
   </div>
-</div>
 
-<!-- TAXES TAB -->
   <div class="tab-panel" id="tab-taxes">
     <div class="grid">
       <div class="stat-card card">
@@ -1419,15 +1460,11 @@ function renderStatsAndBanner(){
   const host = $('bannerHost');
   const now = new Date(); const dow = now.getDay(); // 0 sun .. 6 sat
   let html = '';
-  if(todayHrs===0 && dow!==0 && dow!==6){
-    html = `<div class="banner warn"><span class="icon">&#9888;</span> No hours logged today yet. Quick add one above before you lose the details.</div>`;
-  } else {
-    const expectedByNowPct = (dow===0?7:dow)/5; // rough weekday pacing
-    if(weekHrs < state.weeklyTarget*0.5 && dow>=4){
-      html = `<div class="banner warn"><span class="icon">&#9203;</span> You're at ${weekHrs.toFixed(1)}h of your ${state.weeklyTarget}h weekly target with the week winding down.</div>`;
-    } else if(weekHrs >= state.weeklyTarget){
-      html = `<div class="banner good"><span class="icon">&#10003;</span> Weekly target hit &mdash; ${weekHrs.toFixed(1)}h logged this week.</div>`;
-    }
+  const expectedByNowPct = (dow===0?7:dow)/5; // rough weekday pacing
+  if(weekHrs < state.weeklyTarget*0.5 && dow>=4){
+    html = `<div class="banner warn"><span class="icon">&#9203;</span> You're at ${weekHrs.toFixed(1)}h of your ${state.weeklyTarget}h weekly target with the week winding down.</div>`;
+  } else if(weekHrs >= state.weeklyTarget){
+    html = `<div class="banner good"><span class="icon">&#10003;</span> Weekly target hit &mdash; ${weekHrs.toFixed(1)}h logged this week.</div>`;
   }
   host.innerHTML = html;
 }
@@ -1750,8 +1787,10 @@ function renderMonthlyChart(){
 /* ── Top 5 Projects 2026 ── */
 function renderTop5Projects(filtered){
   filtered = filtered || getFilteredEntries();
+  const _EX_T = new Set(['Unused Hours','Credits Given']);
+  const _EX_P = new Set(['Unused hours','Unused Hours','Credits given','Credits Given']);
   const pm={};
-  filtered.forEach(e=>{
+  filtered.filter(e=>!_EX_T.has(e.task)&&!_EX_P.has(e.project)&&e.asset!=='--').forEach(e=>{
     pm[e.project]=pm[e.project]||{billed:0,hours:0};
     pm[e.project].billed+=e.billed; pm[e.project].hours+=e.hours;
   });
@@ -1772,29 +1811,112 @@ function renderTop5Projects(filtered){
 }
 
 /* ── YoY Comparison ── */
-function renderYoYChart(){
-  const ML=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const mk=(yr,i)=>yr+'-'+String(i+1).padStart(2,'0');
-  const d=(yr)=>ML.map((_,i)=>Math.round(state.entries.filter(e=>e.date.startsWith(mk(yr,i))).reduce((s,e)=>s+e.billed,0)));
-  destroyChart('chartYoY');
-  charts.chartYoY=new Chart($('chartYoY'),{
-    type:'bar',data:{labels:ML,datasets:[
-      {label:'2025',data:d('2025'),backgroundColor:'rgba(94,231,255,0.55)',borderRadius:4,borderSkipped:false},
-      {label:'2026',data:d('2026'),backgroundColor:'rgba(74,222,128,0.7)',borderRadius:4,borderSkipped:false}
-    ]},
-    options:{maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#cdd2e6',font:{size:11.5}}},tooltip:{callbacks:{label:item=>`${item.dataset.label}: ${fmtMoney(item.parsed.y)}`}}},
-      scales:{x:{ticks:{color:'#98a0b8'},grid:{color:'rgba(255,255,255,0.05)'}},
-        y:{ticks:{color:'#98a0b8',callback:v=>v>=1000?'$'+Math.round(v/1000)+'k':'$'+v},grid:{color:'rgba(255,255,255,0.06)'}}}
+function renderTaskMixChart(filtered, EXCLUDE_TASKS, EXCLUDE_PROJECTS, EXCLUDE_ASSETS){
+  const GROUPS = {
+    'Calls':        e=>e.task.startsWith('Calls'),
+    'Deliverables': e=>['Framing','Re-work','Review','Brainstorming','Research','Creative Handoff'].includes(e.task),
+    'Admin':        e=>['Comms / Admin','Learning','Onboarding','Onsite Meeting'].includes(e.task),
+    'Travel':       e=>e.task==='Travel',
+  };
+  const valid = filtered.filter(e=>!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project)&&!EXCLUDE_ASSETS.has(e.asset));
+  const groupBilled = {};
+  const groupDetail = {};
+  for(const [g,fn] of Object.entries(GROUPS)){
+    const rows = valid.filter(fn);
+    groupBilled[g] = rows.reduce((s,e)=>s+e.billed,0);
+    // detail breakdown
+    const detail = {};
+    rows.forEach(e=>{ detail[e.task]=(detail[e.task]||0)+e.billed; });
+    groupDetail[g] = detail;
+  }
+  const labels = Object.keys(groupBilled);
+  const data = labels.map(l=>groupBilled[l]);
+  const palette = ['#6366f1','#22c55e','#f59e0b','#ef4444'];
+  destroyChart('chartTaskMix');
+  const ctx = document.getElementById('chartTaskMix');
+  if(!ctx) return;
+  charts['chartTaskMix'] = new Chart(ctx,{
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:palette, borderWidth:0 }] },
+    options:{
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'right', labels:{ color:'#94a3b8', font:{size:12} } },
+        tooltip:{ callbacks:{ label: ctx=>` ${ctx.label}: $${ctx.raw.toLocaleString('en-US',{maximumFractionDigits:0})}` } }
+      },
+      onClick:(evt,els)=>{
+        if(!els.length) return;
+        const g = labels[els[0].index];
+        const detail = groupDetail[g];
+        const dLabels = Object.keys(detail).sort((a,b)=>detail[b]-detail[a]);
+        const dData = dLabels.map(l=>detail[l]);
+        $('taskMixDrillTitle').textContent = g+' breakdown';
+        $('taskMixDrillBar').style.display='block';
+        destroyChart('chartTaskMixDrill');
+        const ctx2 = document.getElementById('chartTaskMixDrill');
+        if(!ctx2) return;
+        charts['chartTaskMixDrill'] = new Chart(ctx2,{
+          type:'bar',
+          data:{ labels:dLabels, datasets:[{ data:dData, backgroundColor:'#6366f1', borderRadius:4 }] },
+          options:{
+            indexAxis:'y', maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString('en-US',{maximumFractionDigits:0})}` }} },
+            scales:{ x:{ ticks:{color:'#64748b',callback:v=>'$'+Math.round(v/1000)+'k'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ticks:{color:'#94a3b8'}, grid:{display:false}} }
+          }
+        });
+      }
+    }
+  });
+  const back = $('taskMixDrillBack');
+  if(back) back.onclick=()=>{ $('taskMixDrillBar').style.display='none'; destroyChart('chartTaskMixDrill'); };
+}
+
+function renderWorkTrendChart(EXCLUDE_TASKS, EXCLUDE_PROJECTS){
+  const months = [];
+  const now = new Date();
+  for(let i=11;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.toISOString().slice(0,7));
+  }
+  const groups = {Deliverables:[], Calls:[], Admin:[], Travel:[]};
+  months.forEach(mo=>{
+    const rows = state.entries.filter(e=>e.date.startsWith(mo)&&!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project));
+    groups.Deliverables.push(rows.filter(e=>['Framing','Re-work','Review','Brainstorming','Research','Creative Handoff'].includes(e.task)).reduce((s,e)=>s+e.hours,0));
+    groups.Calls.push(rows.filter(e=>e.task.startsWith('Calls')).reduce((s,e)=>s+e.hours,0));
+    groups.Admin.push(rows.filter(e=>['Comms / Admin','Learning','Onboarding','Onsite Meeting'].includes(e.task)).reduce((s,e)=>s+e.hours,0));
+    groups.Travel.push(rows.filter(e=>e.task==='Travel').reduce((s,e)=>s+e.hours,0));
+  });
+  const moLabels = months.map(m=>{ const [y,mo]=m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+(y!==String(now.getFullYear())?` '${y.slice(2)}`:''); });
+  const palette = ['#6366f1','#22c55e','#f59e0b','#ef4444'];
+  destroyChart('chartWorkTrend');
+  const ctx = document.getElementById('chartWorkTrend');
+  if(!ctx) return;
+  charts['chartWorkTrend'] = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:moLabels,
+      datasets:Object.entries(groups).map(([label,data],i)=>({
+        label, data, backgroundColor:palette[i], borderRadius:3, stack:'s'
+      }))
+    },
+    options:{
+      maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ color:'#94a3b8', font:{size:11} } }, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ stacked:true, ticks:{color:'#64748b'}, grid:{display:false} },
+        y:{ stacked:true, ticks:{color:'#64748b',callback:v=>v+'h'}, grid:{color:'rgba(255,255,255,0.04)'} }
+      }
     }
   });
 }
 
-/* ── Asset Mix Donut ── */
+
 function renderAssetMixChart(filtered){
   filtered = filtered || getFilteredEntries();
+  const _EX_T = new Set(['Unused Hours','Credits Given']);
+  const _EX_P = new Set(['Unused hours','Unused Hours','Credits given','Credits Given']);
   const am={};
-  filtered.filter(e=>e.asset&&e.asset!=='--')
+  filtered.filter(e=>e.asset&&e.asset!=='--'&&!_EX_T.has(e.task)&&!_EX_P.has(e.project))
     .forEach(e=>{am[e.asset]=(am[e.asset]||0)+e.hours;});
   const sorted=Object.entries(am).sort((a,b)=>b[1]-a[1]);
   const labels=sorted.map(x=>x[0]), data=sorted.map(x=>Math.round(x[1]*10)/10);
@@ -1812,8 +1934,10 @@ function renderAssetMixChart(filtered){
 /* ── Solution Mix Donut ── */
 function renderSolutionMixChart(filtered){
   filtered = filtered || getFilteredEntries();
+  const _EX_T = new Set(['Unused Hours','Credits Given']);
+  const _EX_P = new Set(['Unused hours','Unused Hours','Credits given','Credits Given']);
   const sm={};
-  filtered.filter(e=>e.bu&&e.bu!=='--')
+  filtered.filter(e=>e.bu&&e.bu!=='--'&&!_EX_T.has(e.task)&&!_EX_P.has(e.project))
     .forEach(e=>{sm[e.bu]=(sm[e.bu]||0)+e.hours;});
   const sorted=Object.entries(sm).sort((a,b)=>b[1]-a[1]);
   const labels=sorted.map(x=>x[0]), data=sorted.map(x=>Math.round(x[1]*10)/10);
@@ -1831,8 +1955,10 @@ function renderSolutionMixChart(filtered){
 /* ── Top 5 Tasks 2026 ── */
 function renderTop5TasksChart(filtered){
   filtered = filtered || getFilteredEntries();
+  const _EX_T = new Set(['Unused Hours','Credits Given']);
+  const _EX_P = new Set(['Unused hours','Unused Hours','Credits given','Credits Given']);
   const tm={};
-  filtered.filter(e=>e.task&&e.task!=='--')
+  filtered.filter(e=>e.task&&e.task!=='--'&&!_EX_T.has(e.task)&&!_EX_P.has(e.project))
     .forEach(e=>{tm[e.task]=(tm[e.task]||0)+e.hours;});
   const top5=Object.entries(tm).sort((a,b)=>b[1]-a[1]).slice(0,5);
   destroyChart('chartTasks');
@@ -1921,115 +2047,132 @@ function renderPacingWidget(){
 function renderDashboard(){
   try { _renderDashboard(); } catch(e) {
     console.error('renderDashboard error:', e);
-    const h = $('tab-dashboard');
-    if(h) h.insertAdjacentHTML('afterbegin', `<div style="background:red;color:#fff;padding:12px;font-family:monospace;font-size:13px;border-radius:6px;margin:12px;">Dashboard error: ${e.message}<br>${e.stack}</div>`);
   }
 }
+
 function _renderDashboard(){
   renderFilterBar();
   renderYearToggles();
 
   const now = new Date(), todayStr = todayISO();
   const curYear = todayStr.slice(0,4);
-  const thisMonthKey = todayStr.slice(0,7), thisMonthNum = todayStr.slice(5,7);
   const lyYear = String(parseInt(curYear)-1);
-  const lyMonthKey = lyYear+'-'+thisMonthNum;
+  const lyCutoff = lyYear+'-'+todayStr.slice(5);
 
-  // All KPIs use filtered entries
   const filtered = getFilteredEntries();
   const { start: rStart, end: rEnd } = getRangeBounds();
 
-  // For YTD/goal pacing we always compare against current year full set
-  const e26 = state.entries.filter(e=>e.date.startsWith(curYear));
-  const ytdBilled  = filtered.reduce((s,e)=>s+e.billed, 0);
-  const ytdHours   = filtered.reduce((s,e)=>s+e.hours, 0);
+  // Excluded task/project names
+  const EXCLUDE_TASKS = new Set(['Unused Hours','Credits Given']);
+  const EXCLUDE_PROJECTS = new Set(['Unused hours','Unused Hours','Credits given','Credits Given']);
+  const EXCLUDE_ASSETS = new Set(['--']);
 
-  // Run rate: always anchored to current year (filter-independent)
+  // Current year entries
+  const e26 = state.entries.filter(e=>e.date.startsWith(curYear));
+
+  // Totals from filtered set
+  const ytdBilled = filtered.reduce((s,e)=>s+e.billed,0);
+  const ytdHours  = filtered.reduce((s,e)=>s+e.hours,0);
+
+  // Run rate — always current year
   const cyStart = new Date(curYear+'-01-01T12:00:00');
   const cyDays = Math.max(1, Math.floor((now-cyStart)/(1000*60*60*24))+1);
-  const cyBilled = e26.reduce((s,e)=>s+e.billed, 0);
+  const cyBilled = e26.reduce((s,e)=>s+e.billed,0);
+  const cyHours  = e26.reduce((s,e)=>s+e.hours,0);
   const runRate = (cyBilled/cyDays)*365;
 
-  // Days elapsed in filtered range (for weekly avg etc.)
-  const rangeStart = rStart ? new Date(rStart+'T12:00:00') : new Date(curYear+'-01-01T12:00:00');
-  const rangeEnd   = rEnd   ? new Date(rEnd+'T12:00:00')   : now;
-  const daysElapsed = Math.max(1, Math.floor((rangeEnd-rangeStart)/(1000*60*60*24))+1);
+  // Weekly avg — current year
+  const cyWeeks = Math.max(1, cyDays/7);
+  const weeklyAvgBilled = cyBilled/cyWeeks;
+  const weeklyAvgHrs    = cyHours/cyWeeks;
 
-  // Goal pacing always vs current year
+  // Effective rate — billed / (hours - unused hours + credits given)
+  // credits given are stored as negative hours, so adding them reduces the denominator
+  const unusedOnlyHrs   = e26.filter(e=>e.task==='Unused Hours'||EXCLUDE_PROJECTS.has(e.project)&&e.task!=='Credits Given').reduce((s,e)=>s+e.hours,0);
+  const creditsGivenHrs = e26.filter(e=>e.task==='Credits Given'||e.project==='Credits given').reduce((s,e)=>s+e.hours,0); // negative sum
+  const effectiveHours = Math.max(1, cyHours - unusedOnlyHrs + creditsGivenHrs);
+  const effectiveRate = cyBilled / effectiveHours;
+
+  // Goal pacing
   const annualGoal = state.annualGoal||200000;
-  const e26Billed  = e26.reduce((s,e)=>s+e.billed,0);
-  const goalPct    = annualGoal>0 ? Math.min(150,Math.round(e26Billed/annualGoal*100)) : 0;
-  const lyCutoff   = lyYear+'-'+todayStr.slice(5);
+  const goalPct = annualGoal>0 ? Math.min(150,Math.round(cyBilled/annualGoal*100)) : 0;
   const lyYTDBilled = state.entries.filter(e=>e.date.startsWith(lyYear)&&e.date<=lyCutoff).reduce((s,e)=>s+e.billed,0);
-  const pacingDelta    = e26Billed - lyYTDBilled;
+  const pacingDelta = cyBilled - lyYTDBilled;
   const pacingDeltaPct = lyYTDBilled ? Math.round(pacingDelta/lyYTDBilled*100) : null;
 
-  const weeksElapsed = Math.max(1, daysElapsed/7);
-  const weeklyAvgBilled = ytdBilled/weeksElapsed;
-  const weeklyAvgHrs    = ytdHours/weeksElapsed;
-  const activeDays = new Set(filtered.map(e=>e.date)).size;
-  const avgPerDay  = activeDays ? ytdBilled/activeDays : 0;
+  // Unused hours — current year
+  const unusedHrs2026 = e26.filter(e=>EXCLUDE_TASKS.has(e.task)||EXCLUDE_PROJECTS.has(e.project)).reduce((s,e)=>s+e.hours,0);
 
-  const thisMonthBilled = filtered.filter(e=>e.date.startsWith(thisMonthKey)).reduce((s,e)=>s+e.billed,0);
-  const lyMonthBilled   = state.entries.filter(e=>e.date.startsWith(lyMonthKey)).reduce((s,e)=>s+e.billed,0);
-  const monthDelta    = thisMonthBilled - lyMonthBilled;
-  const monthDeltaPct = lyMonthBilled ? Math.round(monthDelta/lyMonthBilled*100) : null;
+  // Unique projects — exclude admin/unused
+  const uniqueProjects = [...new Set(
+    filtered.filter(e=>!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project)&&!EXCLUDE_ASSETS.has(e.asset))
+            .map(e=>e.project)
+  )].sort();
 
-  const unusedHrs  = filtered.filter(e=>e.task==='Unused Hours').reduce((s,e)=>s+e.hours,0);
-  const creditHrs  = filtered.filter(e=>e.task==='Credits Given').reduce((s,e)=>s+e.hours,0);
-  const uniqueProjects = new Set(filtered.filter(e=>e.asset!=='--'&&!ADMIN_TASKS.has(e.task)).map(e=>e.project)).size;
-
-  // KPI tiles
-  $('kpiBilledYTD').textContent     = fmtMoney(ytdBilled);
-  $('kpiBilledYTDHrs').textContent  = ytdHours.toFixed(1)+'h logged';
-  $('kpiPacingPct').textContent     = goalPct+'%';
-  $('kpiPacingBar').style.width     = Math.min(100,goalPct)+'%';
-  $('kpiPacingBar').className       = 'pacing-bar-fill '+(goalPct>=100?'ahead':goalPct>=80?'on-track':'behind');
-  $('kpiPacingVsLY').innerHTML      = lyYTDBilled>0
-    ?(pacingDelta>=0?`<span class="delta-up">&#9650; ${pacingDeltaPct!==null?pacingDeltaPct+'% ':''}vs same point last year</span>`
-                   :`<span class="delta-dn">&#9660; ${Math.abs(pacingDeltaPct)!==null?Math.abs(pacingDeltaPct)+'% ':''}vs same point last year</span>`)
+  // Set KPI tiles
+  $('kpiBilledYTD').textContent    = fmtMoney(cyBilled);
+  $('kpiBilledYTDHrs').textContent = cyHours.toFixed(1)+'h logged';
+  $('kpiRunRate').textContent      = fmtMoney(runRate);
+  $('kpiPacingPct').textContent    = goalPct+'%';
+  $('kpiPacingBar').style.width    = Math.min(100,goalPct)+'%';
+  $('kpiPacingBar').className      = 'pacing-bar-fill '+(goalPct>=100?'ahead':goalPct>=80?'on-track':'behind');
+  $('kpiPacingVsLY').innerHTML     = lyYTDBilled>0
+    ?(pacingDelta>=0
+      ?`<span class="delta-up">&#9650; ${pacingDeltaPct!==null?Math.abs(pacingDeltaPct)+'% ':''}vs same point LY</span>`
+      :`<span class="delta-dn">&#9660; ${pacingDeltaPct!==null?Math.abs(pacingDeltaPct)+'% ':''}vs same point LY</span>`)
     :'No prior year data';
-  $('kpiRunRate').textContent       = fmtMoney(runRate);
-  $('kpiThisMonth').textContent     = fmtMoney(thisMonthBilled);
-  $('kpiThisMonthVsLY').innerHTML   = lyMonthBilled>0
-    ?(monthDelta>=0?`<span class="delta-up">&#9650; ${monthDeltaPct!==null?Math.abs(monthDeltaPct)+'% ':''}vs ${fmtMoney(lyMonthBilled)} last yr</span>`
-                  :`<span class="delta-dn">&#9660; ${monthDeltaPct!==null?Math.abs(monthDeltaPct)+'% ':''}vs ${fmtMoney(lyMonthBilled)} last yr</span>`)
-    :'No prior year data';
-  $('kpiWeeklyAvg').textContent     = fmtMoney(weeklyAvgBilled);
-  $('kpiWeeklyAvgSub').textContent  = weeklyAvgHrs.toFixed(1)+'h/wk avg';
-  $('kpiAvgDay').textContent        = fmtMoney(avgPerDay);
-  $('kpiUniqueProjects').textContent= uniqueProjects;
-  $('kpiUnusedHrs').textContent     = unusedHrs.toFixed(1)+'h';
-  $('kpiUnusedVal').textContent     = fmtMoney(unusedHrs*state.rate)+' at rate';
-  $('kpiCreditsHrs').textContent    = creditHrs.toFixed(1)+'h';
-  $('kpiCreditsVal').textContent    = fmtMoney(creditHrs*state.rate)+' at rate';
+  $('kpiEffectiveRate').textContent  = '$'+effectiveRate.toFixed(0)+'/hr';
+  $('kpiEffectiveRateSub').textContent = `vs $${state.rate||175} contracted · ${unusedOnlyHrs.toFixed(0)}h unused, ${Math.abs(creditsGivenHrs).toFixed(1)}h credits out`;
+  $('kpiWeeklyAvg').textContent    = fmtMoney(weeklyAvgBilled);
+  $('kpiWeeklyAvgSub').textContent = weeklyAvgHrs.toFixed(1)+'h/wk avg';
+  $('kpiUniqueProjects').textContent = uniqueProjects.length;
+  $('kpiUnusedHrs').textContent    = unusedHrs2026.toFixed(1)+'h';
+  $('kpiUnusedVal').textContent    = `retainer hrs not worked`;
+  $('kpiVsLY').textContent         = lyYTDBilled>0 ? (pacingDelta>=0?'+':'')+fmtMoney(pacingDelta) : '—';
+  $('kpiVsLYSub').textContent      = lyYTDBilled>0 ? `vs ${fmtMoney(lyYTDBilled)} same point LY` : 'No prior year data';
 
   const _gi=$('goalAdjust'); if(_gi) _gi.value=state.annualGoal||200000;
   renderHrsNeeded();
 
-  renderMonthlyChart();
-  renderTop5Projects(filtered);
-  renderYoYChart();
-  renderAssetMixChart(filtered);
-  renderSolutionMixChart(filtered);
-  renderTop5TasksChart(filtered);
-  renderPacingWidget();
+  // Unique Projects drill-down
+  const projCard = $('kpiProjectsCard');
+  if(projCard){
+    projCard.onclick = ()=>{
+      const dc = $('projectsDrillCard');
+      if(!dc) return;
+      if(dc.style.display==='none'){
+        dc.style.display='block';
+        const body = $('projectsDrillBody');
+        // build project list with billed totals
+        const projTotals = {};
+        filtered.filter(e=>!EXCLUDE_TASKS.has(e.task)&&!EXCLUDE_PROJECTS.has(e.project)&&!EXCLUDE_ASSETS.has(e.asset))
+                .forEach(e=>{ projTotals[e.project]=(projTotals[e.project]||0)+e.billed; });
+        const sorted = Object.entries(projTotals).sort((a,b)=>b[1]-a[1]);
+        body.innerHTML = `<table class="data-table"><thead><tr><th>Project</th><th>Billed</th></tr></thead><tbody>
+          ${sorted.map(([p,b])=>`<tr><td>${p}</td><td>${fmtMoney(b)}</td></tr>`).join('')}
+        </tbody></table>`;
+      } else {
+        dc.style.display='none';
+      }
+    };
+  }
+  const pdc = $('projectsDrillClose');
+  if(pdc) pdc.onclick = ()=>{ $('projectsDrillCard').style.display='none'; };
 
-  // Wire drill-downs onto charts
-  const _f = filtered;
-  attachChartDrill('chartProjects', lbl=>{
-    return _f.filter(e=>e.project===lbl);
-  }, lbl=>`Project: ${lbl}`);
-  attachChartDrill('chartAsset', lbl=>{
-    return _f.filter(e=>e.asset===lbl);
-  }, lbl=>`Asset: ${lbl}`);
-  attachChartDrill('chartSolution', lbl=>{
-    return _f.filter(e=>e.bu===lbl);
-  }, lbl=>`Solution: ${lbl}`);
-  attachChartDrill('chartTasks', lbl=>{
-    return _f.filter(e=>e.task===lbl);
-  }, lbl=>`Task: ${lbl}`);
+  // Charts
+  renderMonthlyChart();
+  renderTaskMixChart(filtered, EXCLUDE_TASKS, EXCLUDE_PROJECTS, EXCLUDE_ASSETS);
+  renderWorkTrendChart(EXCLUDE_TASKS, EXCLUDE_PROJECTS);
+  renderAssetMixChart(filtered);
+  renderTop5Projects(filtered);
+
+  attachChartDrill('chartProjects', lbl=>filtered.filter(e=>e.project===lbl), lbl=>`Project: ${lbl}`);
+  attachChartDrill('chartAsset', lbl=>filtered.filter(e=>e.asset===lbl), lbl=>`Asset: ${lbl}`);
+
 }
+
+
+// (duplicate _renderDashboard removed)
 
 
 function chartOpts({dual=false}={}){
@@ -3457,7 +3600,106 @@ function updateTravelStats(){
 
 
 /* ---------- INIT ---------- */
+
+// PDF Export
+document.addEventListener('click', e => {
+  if(e.target.id !== 'exportPdfBtn') return;
+  // Switch to dashboard tab first
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  const dashBtn = document.querySelector('nav button[data-tab="dashboard"]');
+  if(dashBtn) dashBtn.classList.add('active');
+  const dashPanel = document.getElementById('tab-dashboard');
+  if(dashPanel) dashPanel.classList.add('active');
+  renderDashboard();
+  // Set PDF header subtitle
+  const sub = document.getElementById('pdfSubtitle');
+  if(sub){
+    const now = new Date();
+    sub.textContent = 'Generated ' + now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) + ' · ' + (state.annualGoal ? 'Goal: $'+state.annualGoal.toLocaleString() : '');
+  }
+  setTimeout(()=>window.print(), 300);
+});
+
 boot();
+
+// ── STOPWATCH ──────────────────────────────────────────────────────
+(function(){
+  let elapsed = 0, startTs = null, rafId = null, lastChimeMark = -1;
+
+  function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
+  function fmt(ms){
+    const s = ms/1000;
+    return pad(s/3600)+':'+pad((s%3600)/60)+':'+pad(s%60);
+  }
+
+  function chime(){
+    try{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      [[523.25,0],[659.25,0.18],[783.99,0.36]].forEach(([freq,delay])=>{
+        const o=ctx.createOscillator(), g=ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value=freq; o.type='sine';
+        const t=ctx.currentTime+delay;
+        g.gain.setValueAtTime(0.28,t);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.65);
+        o.start(t); o.stop(t+0.7);
+      });
+    }catch(e){}
+  }
+
+  function tick(){
+    const now = performance.now();
+    const total = startTs !== null ? (now - startTs) : elapsed;
+    const display = $('timerDisplay');
+    if(display) display.textContent = fmt(total);
+    const mark = Math.floor(total / (30*60*1000));
+    if(mark > lastChimeMark && total > 2000){
+      lastChimeMark = mark;
+      chime();
+      const st=$('timerStatus');
+      if(st){ st.textContent=`🔔 ${mark*30}m — nice work`; setTimeout(()=>{ if(st) st.textContent='Running · chimes every 30m'; },3500); }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  window.timerToggle = function(){
+    const btn=$('timerToggleBtn');
+    if(startTs !== null){
+      elapsed = performance.now() - startTs;
+      startTs = null;
+      cancelAnimationFrame(rafId); rafId=null;
+      if(btn) btn.textContent='▶ Resume';
+      const st=$('timerStatus'); if(st) st.textContent='Paused';
+    } else {
+      startTs = performance.now() - elapsed;
+      lastChimeMark = Math.floor(elapsed/(30*60*1000));
+      tick();
+      if(btn) btn.textContent='⏸ Pause';
+      const st=$('timerStatus'); if(st) st.textContent='Running · chimes every 30m';
+    }
+  };
+
+  window.timerReset = function(){
+    cancelAnimationFrame(rafId); rafId=null;
+    elapsed=0; startTs=null; lastChimeMark=-1;
+    const d=$('timerDisplay'); if(d) d.textContent='00:00:00';
+    const btn=$('timerToggleBtn'); if(btn) btn.textContent='▶ Start';
+    const st=$('timerStatus'); if(st) st.textContent='Stopped · chimes every 30m';
+  };
+
+  window.timerLogIt = function(){
+    const total = startTs !== null ? (performance.now()-startTs) : elapsed;
+    if(total < 60000){ alert('Timer under 1 minute — keep going!'); return; }
+    const hrs = total/(1000*60*60);
+    const rounded = Math.ceil(hrs*4)/4; // ceil to next 15 min increment
+    // Pre-fill the hours column of a new row if there's a quick-add input
+    const inp = document.querySelector('#recentTbody tr:first-child td[data-col="hours"] input, input[name="hrs"], #newHrs');
+    if(inp){ inp.value=rounded.toFixed(2); inp.focus(); }
+    else { prompt('Copy hours to paste into log:', rounded.toFixed(2)); }
+    timerReset();
+  };
+})();
 </script>
 </body>
 </html>
